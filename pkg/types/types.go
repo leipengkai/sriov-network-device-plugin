@@ -37,11 +37,21 @@ const (
 // DeviceType is custom type to define supported device types
 type DeviceType string
 
+// VdpaType is a type to define the supported vdpa device types
+type VdpaType string
+
 const (
 	// NetDeviceType is DeviceType for network class devices
 	NetDeviceType DeviceType = "netDevice"
 	// AcceleratorType is DeviceType for accelerator class devices
 	AcceleratorType DeviceType = "accelerator"
+
+	// VdpaVirtioType is VdpaType for virtio-net devices
+	VdpaVirtioType VdpaType = "virtio"
+	// VdpaVhostType is VdpaType for vhost-vdpa devices
+	VdpaVhostType VdpaType = "vhost"
+	// VdpaInvalidType is VdpaType to represent an invalid or unsupported type
+	VdpaInvalidType VdpaType = "invalid"
 )
 
 // SupportedDevices is map of 'device identifier as string' to 'device class hexcode as int'
@@ -74,11 +84,12 @@ var SupportedDevices = map[DeviceType]int{
 // ResourceConfig contains configuration parameters for a resource pool
 type ResourceConfig struct {
 	// optional resource prefix that will overwrite	global prefix specified in cli params
-	ResourcePrefix string           `json:"resourcePrefix,omitempty"`
-	ResourceName   string           `json:"resourceName"` // the resource name will be added with resource prefix in K8s api
-	DeviceType     DeviceType       `json:"deviceType,omitempty"`
-	Selectors      *json.RawMessage `json:"selectors,omitempty"`
-	SelectorObj    interface{}
+	ResourcePrefix  string           `json:"resourcePrefix,omitempty"`
+	ResourceName    string           `json:"resourceName"` // the resource name will be added with resource prefix in K8s api
+	DeviceType      DeviceType       `json:"deviceType,omitempty"`
+	ExcludeTopology bool             `json:"excludeTopology,omitempty"`
+	Selectors       *json.RawMessage `json:"selectors,omitempty"`
+	SelectorObj     interface{}
 }
 
 // DeviceSelectors contains common device selectors fields
@@ -98,6 +109,7 @@ type NetDeviceSelectors struct {
 	DDPProfiles  []string `json:"ddpProfiles,omitempty"`
 	IsRdma       bool     // the resource support rdma
 	NeedVhostNet bool     // share vhost-net along the selected resource
+	VdpaType     VdpaType `json:"vdpaType,omitempty"`
 }
 
 // AccelDeviceSelectors contains accelerator(FPGA etc.) related selectors fields
@@ -130,6 +142,7 @@ type ResourceFactory interface {
 	GetSelector(string, []string) (DeviceSelector, error)
 	GetResourcePool(rc *ResourceConfig, deviceList []PciDevice) (ResourcePool, error)
 	GetRdmaSpec(string) RdmaSpec
+	GetVdpaDevice(string) VdpaDevice
 	GetDeviceProvider(DeviceType) DeviceProvider
 	GetDeviceFilter(*ResourceConfig) (interface{}, error)
 	GetNadUtils() NadUtils
@@ -159,6 +172,9 @@ type DeviceProvider interface {
 	GetDevices(*ResourceConfig) []PciDevice
 
 	GetFilteredDevices([]PciDevice, *ResourceConfig) ([]PciDevice, error)
+
+	// ValidConfig performs validation of DeviceType-specific configuration
+	ValidConfig(*ResourceConfig) bool
 }
 
 // PciDevice provides an interface to get generic device specific information
@@ -187,6 +203,7 @@ type PciNetDevice interface {
 	GetLinkType() string
 	GetRdmaSpec() RdmaSpec
 	GetDDPProfiles() string
+	GetVdpaDevice() VdpaDevice
 }
 
 // AccelDevice extends PciDevice interface
@@ -221,4 +238,11 @@ type RdmaSpec interface {
 type NadUtils interface {
 	SaveDeviceInfoFile(resourceName string, deviceID string, devInfo *nettypes.DeviceInfo) error
 	CleanDeviceInfoFile(resourceName string, deviceID string) error
+}
+
+// VdpaDevice is an interface to access vDPA device information
+type VdpaDevice interface {
+	GetPath() string
+	GetParent() string
+	GetType() VdpaType
 }

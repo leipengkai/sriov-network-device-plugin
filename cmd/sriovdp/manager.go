@@ -17,7 +17,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/golang/glog"
 	"github.com/jaypipes/ghw"
@@ -70,7 +70,7 @@ func newResourceManager(cp *cliParams) *resourceManager {
 // readConfig reads and validate configurations from Config file
 func (rm *resourceManager) readConfig() error {
 	resources := &types.ResourceConfList{}
-	rawBytes, err := ioutil.ReadFile(rm.configFile)
+	rawBytes, err := os.ReadFile(rm.configFile)
 
 	if err != nil {
 		return fmt.Errorf("error reading file %s, %v", rm.configFile, err)
@@ -209,6 +209,11 @@ func (rm *resourceManager) validConfigs() bool {
 		// Check if the DeviceType is valid
 		if _, ok := types.SupportedDevices[conf.DeviceType]; !ok {
 			glog.Errorf("unsupported deviceType:  \"%s\" already exists", conf.DeviceType)
+			return false
+		}
+
+		// Check DeviceType-specific configuration
+		if !rm.deviceProviders[conf.DeviceType].ValidConfig(conf) {
 			return false
 		}
 

@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -65,7 +64,7 @@ var _ = Describe("Resource manager", func() {
 				if err != nil {
 					panic(err)
 				}
-				_ = ioutil.WriteFile("/tmp/sriovdp/test_config", []byte("junk"), 0644)
+				_ = os.WriteFile("/tmp/sriovdp/test_config", []byte("junk"), 0644)
 			})
 			AfterEach(func() {
 				err := os.RemoveAll("/tmp/sriovdp")
@@ -88,11 +87,11 @@ var _ = Describe("Resource manager", func() {
 				if testErr != nil {
 					panic(testErr)
 				}
-				testErr = ioutil.WriteFile("/tmp/sriovdp/test_config", []byte(`{
+				testErr = os.WriteFile("/tmp/sriovdp/test_config", []byte(`{
 						"resourceList": [{
 								"resourceName": "intel_sriov_netdevice",
-								"isRdma": false,
 								"selectors": {
+									"isRdma": false,
 									"vendors": ["8086"],
 									"devices": ["154c", "10ed"],
 									"drivers": ["i40evf", "ixgbevf"]
@@ -159,11 +158,11 @@ var _ = Describe("Resource manager", func() {
 				if err != nil {
 					panic(err)
 				}
-				err = ioutil.WriteFile("/tmp/sriovdp/test_config", []byte(`{
+				err = os.WriteFile("/tmp/sriovdp/test_config", []byte(`{
 					"resourceList":	[{
 						"resourceName": "invalid-name",
-						"isRdma": false,
 						"selectors": {
+							"isRdma": false,
 							"vendors": ["8086"],
 							"devices": ["154c", "10ed"],
 							"drivers": ["i40evf", "ixgbevf"]
@@ -186,11 +185,11 @@ var _ = Describe("Resource manager", func() {
 				if err != nil {
 					panic(err)
 				}
-				err = ioutil.WriteFile("/tmp/sriovdp/test_config", []byte(`{
+				err = os.WriteFile("/tmp/sriovdp/test_config", []byte(`{
 					"resourceList":	[{
 						"resourceName": "duplicate",
-						"isRdma": true,
 						"selectors": {
+							"isRdma": true,
 							"vendors": ["8086"],
 							"devices": ["154c", "10ed"],
 							"drivers": ["i40evf", "ixgbevf"]
@@ -208,6 +207,35 @@ var _ = Describe("Resource manager", func() {
 					panic(err)
 				}
 				_ = rm.readConfig()
+			})
+			It("should return false", func() {
+				defer fs.Use()()
+				Expect(rm.validConfigs()).To(Equal(false))
+			})
+		})
+		Context("when both IsRdma and VdpaType are configured", func() {
+			BeforeEach(func() {
+				err := os.MkdirAll("/tmp/sriovdp", 0755)
+				if err != nil {
+					panic(err)
+				}
+				err = os.WriteFile("/tmp/sriovdp/test_config", []byte(`{
+					"resourceList":	[{
+						"resourceName": "wrong_config",
+						"selectors": {
+						        "isRdma": true,
+						        "vdpaType": "virtio",
+							"vendors": ["8086"],
+							"devices": ["154c", "10ed"],
+							"drivers": ["i40evf", "ixgbevf"]
+						}
+					}]
+				}`), 0644)
+				if err != nil {
+					panic(err)
+				}
+				_ = rm.readConfig()
+
 			})
 			It("should return false", func() {
 				defer fs.Use()()
